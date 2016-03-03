@@ -56,7 +56,8 @@ if __name__ == '__main__':
                 # So, did we have it?
                 if cached_location:
                     # Yay! We just need to add the existing coordinates to the 'location_geocoding' field of the user.
-                    user['location_geocoding'] = { "latitude": cached_location['latitude'], "longitude": cached_location['longitude'] }
+                    # This is in geoJSON format: http://geojson.org/
+                    user['location_geocoding'] = { "type": "Point", "coordinates": [ cached_location['longitude'], cached_location['latitude'] ] }
 
                     # Well, let's also sum the total amount of users of the cached location. Why?
                     # Maybe it will be useful later to get the most relevant locations? Who knows, not me.
@@ -78,13 +79,13 @@ if __name__ == '__main__':
                     if location:
                         # Yay! So let's set the 'location_geocoding' parameter of our user to the coordinates obtained
                         # from the geocoding service and cache these coordinates as well.
-                        user['location_geocoding'] = { "latitude": location.latitude, "longitude": location.longitude }
+                        user['location_geocoding'] = { "type": "Point", "coordinates": [ location.longitude, location.latitude ] }
                         db.twitterGeocoding.insert_one( { "location": user_location, "latitude": location[1][0], "longitude": location[1][1], "total_users": 1})
                     else:
                         # Okay, so the user provided some weird location and our geocoding service was unable to
                         # provide us a set of coordinates, uh? Let's just set the coordiantes to {0,0} and we will
                         # sort this out later.
-                        user['location_geocoding'] = { "latitude": 0, "longitude": 0 }
+                        user['location_geocoding'] = { "type": "Point", "coordinates": [ 0, 0 ] }
                         db.twitterGeocoding.insert_one( { "location": user_location, "latitude": 0, "longitude": 0, "total_users": 1})
 
                 # Let's just end this and update our twitter user with whatever the result was.
