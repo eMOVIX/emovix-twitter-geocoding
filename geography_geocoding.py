@@ -4,12 +4,13 @@ __author__ = 'Jordi Vilaplana'
 
 from pymongo import MongoClient
 from geopy.geocoders import Nominatim
+from geopy.geocoders import GoogleV3
 import json
 import logging
 import time
 
 logging.basicConfig(
-    filename='emovix_twitter_geocoding.log',
+    filename='geography_geocoding.log',
     level=logging.WARNING,
     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
     datefmt='%d-%m-%y %H:%M')
@@ -22,7 +23,7 @@ client = None
 db = None
 
 if __name__ == '__main__':
-    logging.debug('emovix_twitter_geocoding.py starting ...')
+    logging.debug('geography_geocoding.py starting ...')
 
     # Load configuration
     with open('config.json', 'r') as f:
@@ -33,15 +34,21 @@ if __name__ == '__main__':
     client = MongoClient('mongodb://' + database_host + ':27017/')
     db = client[database_name]
 
-    geolocator = Nominatim()
+    #geolocator = Nominatim()
+    geolocator = GoogleV3()
 
     # Let's run for a while ...
     while True:
         #try:
         # Get a twitter user account from the database that has not been geocoded yet.
         # This is, where the "location_geocoding" field doesn't exist.
-        user = db.twitterUser.find_one({ "location_geocoding": { "$exists": False } })
+        tweet = db.geo_uk_twitterStatus_ca.find_one({ "user.location_geocoding": { "$exists": False } })
 
+
+        if not tweet:
+            break
+
+        user = tweet['user']
         # If we get a user ... (maybe we have already geocoded all the users?)
         if user:
             # Get the user location. This field is filled in the twitter profile page of the user, and it's an
@@ -62,12 +69,6 @@ if __name__ == '__main__':
                 # This is in geoJSON format: http://geojson.org/
                 user['location_geocoding'] = { "type": "Point", "coordinates": [ cached_location['longitude'], cached_location['latitude'] ] }
 
-                # Well, let's also sum the total amount of users of the cached location. Why?
-                # Maybe it will be useful later to get the most relevant locations? Who knows, not me.
-                if not cached_location['total_users']:
-                    cached_location['total_users'] = 0
-                cached_location['total_users'] += 1
-                db.twitterGeocoding.update( { '_id': cached_location['_id']}, cached_location, upsert=True)
             else:
                 # Nay! Welp, let's get the coordinates from our geocoding service.
                 logging.warning("Going to get the location " + user_location + " ...")
@@ -91,28 +92,19 @@ if __name__ == '__main__':
                     # Yay! So let's set the 'location_geocoding' parameter of our user to the coordinates obtained
                     # from the geocoding service and cache these coordinates as well.
                     user['location_geocoding'] = { "type": "Point", "coordinates": [ location.longitude, location.latitude ] }
-                    db.twitterGeocoding.insert_one( { "location": user_location, "latitude": location[1][0], "longitude": location[1][1], "total_users": 1})
                 else:
                     # Okay, so the user provided some weird location and our geocoding service was unable to
                     # provide us a set of coordinates, uh? Let's just set the coordiantes to {0,0} and we will
                     # sort this out later.
                     user['location_geocoding'] = { "type": "Point", "coordinates": [ 0, 0 ] }
-                    db.twitterGeocoding.insert_one( { "location": user_location, "latitude": 0, "longitude": 0, "total_users": 1})
 
+            tweet['user'] = user
             # Let's just end this and update our twitter user with whatever the result was.
-            db.twitterUser.update( { "_id": user['_id']}, user, upsert=True)
+            db.geo_uk_twitterStatus_ca.update( { "_id": tweet['_id']}, tweet, upsert=True)
 
             # Just wait for 1 second (required by Nominatim usage policy)
             time.sleep(1)
 
         # No user found, maybe all work is done? Let's take a coffee for 10 seconds ...
         else:
-            time.sleep(10)
-
-        # except Exception as e:
-        #     # Oh well, just keep going
-        #     logging.error(e.__class__)
-        #     logging.error(e)
-        #     continue
-        # except KeyboardInterrupt:
-        #     break
+            break
