@@ -76,6 +76,9 @@ if __name__ == '__main__':
                 location = None
                 try:
                     location = geolocator.geocode(user_location)
+
+                    # Just wait for 1 second (required by Nominatim usage policy)
+                    time.sleep(1)
                 except GeocoderTimedOut as e:
                     logging.error("Nominatim gave a GeocoderTimedOut exception for this location ...")
                     pass
@@ -92,18 +95,21 @@ if __name__ == '__main__':
                     # Yay! So let's set the 'location_geocoding' parameter of our user to the coordinates obtained
                     # from the geocoding service and cache these coordinates as well.
                     user['location_geocoding'] = { "type": "Point", "coordinates": [ location.longitude, location.latitude ] }
+                    db.twitterGeocoding.insert_one(
+                        {"location": user_location, "latitude": location[1][0], "longitude": location[1][1],
+                         "total_users": 1})
                 else:
                     # Okay, so the user provided some weird location and our geocoding service was unable to
                     # provide us a set of coordinates, uh? Let's just set the coordiantes to {0,0} and we will
                     # sort this out later.
                     user['location_geocoding'] = { "type": "Point", "coordinates": [ 0, 0 ] }
+                    db.twitterGeocoding.insert_one(
+                        {"location": user_location, "latitude": 0, "longitude": 0, "total_users": 1})
 
             tweet['user'] = user
             # Let's just end this and update our twitter user with whatever the result was.
             db.geo_uk_twitterStatus_ca.update( { "_id": tweet['_id']}, tweet, upsert=True)
 
-            # Just wait for 1 second (required by Nominatim usage policy)
-            time.sleep(1)
 
         # No user found, maybe all work is done? Let's take a coffee for 10 seconds ...
         else:
