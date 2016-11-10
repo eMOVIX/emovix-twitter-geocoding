@@ -44,7 +44,7 @@ if __name__ == '__main__':
         # try:
         # Get a twitter user account from the database that has not been geocoded yet.
         # This is, where the "location_geocoding" field doesn't exist.
-        tweet = db.geo_eu_twitterStatus_ca.find_one({"user.location_geocoding": {"$exists": False}})
+        tweet = db.ca_twitterStatus.find_one({"user.location_geocoding": {"$exists": False}})
 
         if not tweet:
             break
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
             tweet['user'] = user
             # Let's just end this and update our twitter user with whatever the result was.
-            db.geo_eu_twitterStatus_ca.update({"_id": tweet['_id']}, tweet, upsert=True)
+            db.ca_twitterStatus.update({"_id": tweet['_id']}, tweet, upsert=True)
 
         # No user found, maybe all work is done? Let's take a coffee for 10 seconds ...
         else:
